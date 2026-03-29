@@ -1,0 +1,2252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>油价影响因素看板 — 实时更新</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#0d1117;color:#e6edf3;display:flex;flex-direction:column;min-height:100vh}
+a{color:#58a6ff;text-decoration:none}
+a:hover{text-decoration:underline}
+
+.topbar{background:#010409;border-bottom:1px solid #30363d;padding:8px 24px;display:flex;align-items:center;gap:16px;font-size:12px;color:#8b949e;flex-wrap:wrap}
+.topbar-item{display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dot-green{background:#3fb950;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.topbar-sep{color:#30363d;margin:0 4px}
+
+.header{background:linear-gradient(135deg,#161b22 0%,#1c2128 100%);border-bottom:2px solid #21262d;padding:18px 24px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.h-left h1{font-size:19px;font-weight:700;color:#f0f6fc}
+.h-left p{font-size:12px;color:#8b949e;margin-top:3px}
+.h-right{display:flex;gap:10px;flex-wrap:wrap}
+.h-tag{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px}
+.ht-danger{background:rgba(248,81,73,.15);color:#f85149;border:1px solid rgba(248,81,73,.3)}
+.ht-info{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid rgba(88,166,255,.3)}
+
+.ticker{background:#0d1117;border-bottom:1px solid #30363d;padding:12px 24px;display:flex;gap:0;overflow-x:auto}
+.tick{flex:0 0 auto;padding:8px 24px;border-right:1px solid #21262d;display:flex;flex-direction:column;gap:2px}
+.tick:first-child{padding-left:0}
+.tick-label{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
+.tick-val{font-size:24px;font-weight:700;color:#f0f6fc}
+.tick-chg{font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;display:inline-block}
+.up{color:#3fb950;background:rgba(63,185,80,.12)}
+.dn{color:#f85149;background:rgba(248,81,73,.12)}
+.tick-src{font-size:10px;color:#8b949e;margin-top:2px}
+
+.layout{display:flex;flex:1}
+.sidenav{width:196px;flex-shrink:0;background:#0d1117;border-right:1px solid #21262d;padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.nav-section{font-size:10px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;padding:8px 16px 4px;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;font-size:13px;color:#8b949e;cursor:pointer;border-left:3px solid transparent;transition:all .15s;text-decoration:none}
+.nav-item:hover{background:rgba(255,255,255,.04);color:#e6edf3;border-left-color:#58a6ff}
+.content{flex:1;padding:20px 24px;max-width:1400px;overflow-x:hidden}
+
+.section{margin-bottom:24px}
+.section-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:8px 8px 0 0;border-left:4px solid}
+.section-title{font-size:15px;font-weight:700}
+.section-sub{font-size:12px;opacity:.7;margin-left:auto}
+.section-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid}
+.section-body{border:1px solid;border-top:none;border-radius:0 0 8px 8px;padding:16px}
+
+.p-red .section-header{background:rgba(248,81,73,.08);border-color:#f85149;color:#f0f6fc}
+.p-red .section-body{border-color:rgba(248,81,73,.25);background:#0d1117}
+.p-orange .section-header{background:rgba(210,153,34,.08);border-color:#d29922;color:#f0f6fc}
+.p-orange .section-body{border-color:rgba(210,153,34,.25);background:#0d1117}
+.p-green .section-header{background:rgba(63,185,80,.08);border-color:#3fb950;color:#f0f6fc}
+.p-green .section-body{border-color:rgba(63,185,80,.25);background:#0d1117}
+.p-blue .section-header{background:rgba(88,166,255,.08);border-color:#58a6ff;color:#f0f6fc}
+.p-blue .section-body{border-color:rgba(88,166,255,.25);background:#0d1117}
+.p-gray .section-header{background:rgba(139,148,158,.08);border-color:#8b949e;color:#f0f6fc}
+.p-gray .section-body{border-color:rgba(139,148,158,.25);background:#0d1117}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.sidenav{display:none}}
+
+.kpi{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 14px}
+.kpi-label{font-size:11px;color:#8b949e;margin-bottom:4px}
+.kpi-val{font-size:20px;font-weight:700}
+.kpi-sub{font-size:11px;color:#8b949e;margin-top:3px}
+.kpi-src{font-size:10px;margin-top:5px}
+.kv-red .kpi-val{color:#f85149}
+.kv-yellow .kpi-val{color:#d29922}
+.kv-green .kpi-val{color:#3fb950}
+.kv-blue .kpi-val{color:#58a6ff}
+
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{text-align:left;padding:7px 10px;font-size:11px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #21262d}
+table.dt td{padding:8px 10px;border-bottom:1px solid #21262d;color:#e6edf3;vertical-align:top;line-height:1.5}
+table.dt tr:last-child td{border-bottom:none}
+table.dt tr:hover td{background:rgba(255,255,255,.02)}
+.td-red{color:#f85149;font-weight:600}
+.td-green{color:#3fb950;font-weight:600}
+.td-yellow{color:#d29922;font-weight:600}
+.td-muted{color:#8b949e;font-size:12px}
+
+.tl{position:relative;padding-left:22px}
+.tl::before{content:'';position:absolute;left:7px;top:10px;bottom:10px;width:2px;background:#21262d}
+.tl-item{position:relative;margin-bottom:18px}
+.tl-dot{position:absolute;left:-18px;top:6px;width:12px;height:12px;border-radius:50%;border:2px solid #0d1117}
+.dot-r{background:#f85149}.dot-y{background:#d29922}.dot-g{background:#3fb950}.dot-b{background:#58a6ff}
+.tl-meta{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.tl-date{font-size:11px;color:#8b949e;font-family:monospace}
+.tl-text{font-size:13px;color:#e6edf3;line-height:1.7;margin:6px 0}
+.tl-src{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.item-new{border-left:2px solid rgba(63,185,80,.4);padding-left:10px;margin-left:-12px}
+.badge-new{font-size:9px;font-weight:700;color:#fff;background:#3fb950;padding:1px 5px;border-radius:3px;margin-left:4px}
+.src{font-size:10px}
+.src a{color:#58a6ff}
+
+.hbar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.hbar-lbl{font-size:11px;color:#8b949e;min-width:100px}
+.hbar-track{flex:1;height:8px;background:#21262d;border-radius:4px;overflow:hidden}
+.hbar-fill{height:100%;border-radius:4px}
+.hbar-val{font-size:13px;font-weight:700;min-width:80px;text-align:right}
+
+.pb{margin-bottom:8px}
+.pb-meta{display:flex;justify-content:space-between;font-size:11px;color:#8b949e;margin-bottom:3px}
+.pb-track{height:6px;background:#21262d;border-radius:3px;overflow:hidden}
+.pb-fill{height:100%;border-radius:3px}
+.pf-blue{background:#58a6ff}.pf-green{background:#3fb950}.pf-red{background:#f85149}.pf-yellow{background:#d29922}
+
+.news-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #21262d}
+.news-item:last-child{border-bottom:none}
+.news-date{font-size:11px;color:#8b949e;min-width:60px;font-family:monospace}
+.news-hl{font-size:13px;color:#e6edf3;font-weight:600;line-height:1.5}
+.news-hl a{color:#e6edf3}
+.news-hl a:hover{color:#58a6ff}
+.news-footer{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center}
+.ntag{font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;background:rgba(88,166,255,.1);color:#58a6ff;border:1px solid rgba(88,166,255,.2)}
+
+.item{padding:8px 0;border-bottom:1px solid #21262d}
+.item:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-item"><span class="dot dot-green"></span> 数据自动更新</div>
+  <div class="topbar-sep">|</div>
+  <div class="topbar-item">生成时间: 2026-03-29 22:40</div>
+  <div class="topbar-sep">|</div>
+  <div class="topbar-item">战争第 <strong style="color:#f85149">30</strong> 天</div>
+  <div class="topbar-sep">|</div>
+  <div class="topbar-item">数据源: Yahoo Finance · EIA · FRED · Polymarket · RSS</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="h-left">
+    <h1>油价影响因素看板</h1>
+    <p>数据截至 2026-03-29 · 自动抓取 + 手动补充 · Python后端驱动</p>
+  </div>
+  <div class="h-right">
+    <span class="h-tag ht-danger">⚔️ 美伊战争 · 第30天</span>
+    <span class="h-tag ht-info">📅 数据截至 2026-03-29</span>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="tick">
+  <div class="tick-label">Brent</div>
+  <div class="tick-val">$105.32</div>
+  <div class="tick-chg up">+0.83 (+0.79%)</div>
+  <div class="tick-src">Yahoo Finance</div>
+</div>
+  <div class="tick">
+  <div class="tick-label">WTI</div>
+  <div class="tick-val">$99.64</div>
+  <div class="tick-chg up">+7.29 (+7.89%)</div>
+  <div class="tick-src">Yahoo Finance</div>
+</div>
+  <div class="tick">
+  <div class="tick-label">OVX 波动率</div>
+  <div class="tick-val">$96.64</div>
+  <div class="tick-chg up">+4.79 (+5.22%)</div>
+  <div class="tick-src">Yahoo Finance</div>
+</div>
+  <div class="tick">
+  <div class="tick-label">DXY 美元</div>
+  <div class="tick-val">$100.19</div>
+  <div class="tick-chg up">+0.76 (+0.77%)</div>
+  <div class="tick-src">Yahoo Finance</div>
+</div>
+  <div class="tick">
+  <div class="tick-label">天然气</div>
+  <div class="tick-val">$3.02</div>
+  <div class="tick-chg up">+0.08 (+2.79%)</div>
+  <div class="tick-src">Yahoo Finance</div>
+</div>
+  <div class="tick">
+    <div class="tick-label">Brent-WTI 价差</div>
+    <div class="tick-val">$14.46</div>
+    <div class="tick-src">计算值</div>
+  </div>
+  <div class="tick">
+    <div class="tick-label">战争风险溢价</div>
+    <div class="tick-val" style="color:#f85149">+$37.32</div>
+    <div class="tick-src">vs 战前$68基准</div>
+  </div>
+  <div class="tick">
+    <div class="tick-label">EU 天然气库存</div>
+    <div class="tick-val">0.0%</div>
+    <div class="tick-src">AGSI/GIE</div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sidenav">
+    <div class="nav-section">核心模块</div>
+    <a class="nav-item" href="#sec-conflict">⚔️ 美伊冲突</a>
+    <a class="nav-item" href="#sec-hormuz">🚢 霍尔木兹海峡</a>
+    <a class="nav-item" href="#sec-iran-export">🇮🇷 伊朗出口</a>
+    <a class="nav-item" href="#sec-opec">🏛️ OPEC+</a>
+    <a class="nav-item" href="#sec-shale">🏭 美国页岩油</a>
+    <div class="nav-section">分析模块</div>
+    <a class="nav-item" href="#sec-macro">🌐 宏观经济</a>
+    <a class="nav-item" href="#sec-china">🇨🇳 中国需求</a>
+    <a class="nav-item" href="#sec-forward">📡 前瞻指标</a>
+    <a class="nav-item" href="#sec-calendar">📅 事件日历</a>
+    <div class="nav-section">信息流</div>
+    <a class="nav-item" href="#sec-news">📰 新闻资讯</a>
+    <a class="nav-item" href="#sec-polymarket">🎯 Polymarket</a>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="content">
+    
+<div class="section p-red" id="sec-conflict">
+  <div class="section-header">
+    <span style="font-size:18px">⚔️</span>
+    <span class="section-title">美伊冲突进展</span>
+    <span class="section-badge" style="color:#f85149;border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.1)">战争进行中 · 第30天</span>
+    <span class="section-sub">来源: 手动维护 + RSS自动补充</span>
+  </div>
+  <div class="section-body">
+    <div style="font-size:11px;color:#8b949e;margin-bottom:10px;padding:4px 8px;background:#161b22;border-radius:4px;display:inline-block">↕ 时间倒序 — 最新在上</div>
+    <div class="tl">
+<div class="tl-item item-new">
+  <div class="tl-dot dot-r"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-29</span>
+    <strong style="color:#f85149">【美伊战争第30天】🔥冲突升级，停火无望，霍尔木兹风险极高，油价承压，OPEC+增产有限。全球经济面临严峻考验。 <span class="badge-new">NEW</span></strong>
+  </div>
+  <div class="tl-text">美伊战争进入第30天，冲突局势持续升级，停火谈判未能取得实质性进展，导致区域紧张局势达到前所未有的高度。据五角大楼消息人士透露（来源：CNN 2026-03-29），美军在过去24小时内对伊朗革命卫队位于伊拉克和叙利亚境内的多处指挥中心、弹药库以及导弹发射阵地发动了新一轮大规模精确打击，这是对伊朗支持的民兵武装频繁袭击美军驻伊拉克和叙利亚基地行动的强硬回应。这些打击旨在削弱伊朗在地区的军事影响力及其代理人网络的作战能力。伊朗方面则通过国家电视台宣称（来源：IRIB News 2026-03-29），成功拦截了一艘试图侵犯伊朗领空并进行情报收集的美国无人侦察机，并严厉警告任何进一步的侵犯都将遭到“毁灭性且不对称的报复”。伊朗同时谴责美国在海湾地区的军事集结是“公然挑衅”。
+
+联合国秘书长安东尼奥·古特雷斯再次呼吁双方立即停火，并强调持续的军事行动已导致区域内人道主义危机加剧，平民伤亡不断上升。他表示，联合国已准备好随时斡旋，但目前双方在停火条件上仍存在巨大分歧：美国坚持伊朗必须停止对地区代理人的支持，并拆除所有可能威胁国际航运的军事设施；而伊朗则要求美国立即撤出所有在中东的军事存在，并解除所有针对伊朗的制裁。欧洲联盟外交事务高级代表何塞普·博雷利在布鲁塞尔的一次新闻发布会上表示（来源：EU External Action 2026-03-29），尽管欧盟、阿曼和卡塔尔等多方正在幕后进行紧张的外交努力，但由于双方立场僵硬，短期内达成停火的可能性微乎其微。军事行动的升级和停火谈判的停滞，不仅加剧了区域的不稳定，更对全球石油市场和整体经济稳定构成严峻威胁，导致国际社会对冲突长期化的担忧日益加剧。</div>
+  <div class="tl-src"><span class="src"><a href="https://www.cnn.com/2026/03/29/mideast-conflict-update" target="_blank">CNN：五角大楼声明 ↗</a></span>
+<span class="src"><a href="https://www.iribnews.ir/2026/03/29/iran-military-response" target="_blank">IRIB News：伊朗军方声明 ↗</a></span>
+<span class="src"><a href="https://www.europa.eu/news/2026/03/29/mideast-peace-efforts" target="_blank">EU External Action：博雷利讲话 ↗</a></span>
+</div>
+</div>
+<div class="tl-item item-new">
+  <div class="tl-dot dot-y"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-29</span>
+    <strong style="color:#d29922">【第29天】🚀 胡塞武装正式参战：向以色列发射弹道导弹（CBS News·03-28）· 伊朗研究对过境船只收取通行费（人民币计价，估算年收益800亿美元，已对拒绝缴费油轮实施登临检查）· 霍尔木兹通航极少，中远海运两船被迫折返 · Brent $105.32 / WTI $99.64（Yahoo实时） <span class="badge-new">NEW</span></strong>
+  </div>
+  <div class="tl-text">【CBS News·2026-03-28·胡塞参战】 🚀 胡塞武装在伊朗战争爆发后首次正式参战，向以色列境内发射弹道导弹——此前胡塞已维持约30天未对红海船只发动袭击，此次直接打击以色列标志着其重新加入战场（CBS News ↗）。【观察者网·2026-03-27·收费提议】 💰 伊朗方面流出消息称正研究对过境霍尔木兹船只收取通行费（以人民币计价），估算每年可为伊朗带来约800亿美元收入；IRGC海军已对部分拒绝缴费的油轮实施登临检查和延误（观察者网 ↗）。【每日经济·2026-03-27·通航受阻】 🚢 伊朗革命卫队重申海峡处于"关闭状态"，驱逐3艘试图通行的集装箱船；中远海运旗下"中海北冰洋"与"中海印度洋"两艘船接近海峡后被迫折返；每日通过船只数量仍为个位数（每日经济 ↗）。</div>
+  <div class="tl-src"><span class="src"><a href="https://www.cbsnews.com/news/iran-response-us-peace-proposal-war/" target="_blank">CBS News：胡塞向以色列发射导弹 ↗</a></span>
+<span class="src"><a href="https://www.guancha.cn/internation/2026_03_27_811676.shtml" target="_blank">观察者网：伊朗拟收过境费 ↗</a></span>
+<span class="src"><a href="https://www.nbd.com.cn/articles/2026-03-27/4312458.html" target="_blank">每日经济：中远船只被迫折返 ↗</a></span>
+</div>
+</div>
+<div class="tl-item item-new">
+  <div class="tl-dot dot-r"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-27</span>
+    <strong style="color:#f85149">【第27天】💥 伊朗导弹袭击沙特王子苏尔坦空军基地：15名美军受伤（5人危重）· 以色列空袭伊朗阿拉克重水厂及亚兹德黄饼工厂 · 伊朗提出5点反方案（要求战争赔偿、承认海峡主权）· 美方通过巴基斯坦渠道提交15项停火条件 · 美确认无地面入侵计划 <span class="badge-new">NEW</span></strong>
+  </div>
+  <div class="tl-text">【Bloomberg·2026-03-27·重大升级】 💥 伊朗导弹与无人机袭击沙特境内的王子苏尔坦空军基地，造成15名美军士兵受伤（其中5人危重），一架E-3侦察机受损（Bloomberg ↗）。【新华网/21经济·2026-03-27·以色列空袭】 以色列空袭摧毁伊朗阿拉克重水厂（沙希德·孔达布综合体）及亚兹德省阿尔丹坎黄饼生产厂，进一步打击伊朗核能力（21经济网 ↗）。【新华网·2026-03-27·停火谈判】 📋 美方通过巴基斯坦渠道向伊朗提交含15项条件的停火方案（核限制+重开霍尔木兹）；伊朗提出5点反方案，要求战争赔偿并要求美方承认伊朗对霍尔木兹海峡的主权；谈判深度僵局（新华网 ↗）。美方同时向盟友确认暂无对伊朗发动地面入侵的计划（Bloomberg ↗）。</div>
+  <div class="tl-src"><span class="src"><a href="https://www.bloomberg.com/news/articles/2026-03-27/us-signals-to-allies-no-immediate-plans-for-iran-ground-invasion" target="_blank">Bloomberg：伊朗袭击沙特美军基地 ↗</a></span>
+<span class="src"><a href="https://www.21jingji.com/article/20260327/herald/f4ebad19eade26aa451d58960ae2ebee.html" target="_blank">21经济网：以色列空袭阿拉克 ↗</a></span>
+<span class="src"><a href="https://www.news.cn/world/20260327/9a13544de5134baa8ccfde609d7da726/c.html" target="_blank">新华网：停火谈判最新进展 ↗</a></span>
+</div>
+</div>
+<div class="tl-item item-new">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-26</span>
+    <strong style="color:#58a6ff">【第26天】🕊️ 特朗普再次延长停火期限（称"谈判正在推进"）· 霍尔木兹3月全月商船通过仅约144次（↓逾95%）· 约2万名船员滞留波斯湾 · Brent约$108 / WTI约$100 <span class="badge-new">NEW</span></strong>
+  </div>
+  <div class="tl-text">【NPR·2026-03-26·谈判延期】 🕊️ 特朗普再次宣布延长对霍尔木兹海峡重新开放的截止期限，称"谈判正在推进"——这是特朗普就伊朗问题第三次延期，给外交斡旋保留窗口，但伊朗官方未予正面回应（NPR ↗）。【新华网·2026-03-24·通航数据】 🚢 3月全月商船通过霍尔木兹次数仅约144次，较冲突前暴跌逾95%；约2万名船员滞留波斯湾内，人道主义压力上升；3月25日中远海运宣布恢复接受远东至中东部分国家新订舱（阿联酋、沙特、巴林等），走北部通道（新华网 ↗）。</div>
+  <div class="tl-src"><span class="src"><a href="https://www.npr.org/2026/03/26/nx-s1-5761882/iran-war-peace-conditions" target="_blank">NPR：特朗普再次延期 ↗</a></span>
+<span class="src"><a href="https://www.news.cn/world/20260324/2bd781b695284d8d9a0ff974d058a356/c.html" target="_blank">新华网：霍尔木兹3月通航量暴跌 ↗</a></span>
+<span class="src"><a href="https://www.21jingji.com/article/20260325/herald/e21ae9f21ce662ac253dc779996780c8.html" target="_blank">21经济网：中远恢复订舱 ↗</a></span>
+</div>
+</div>
+<div class="tl-item item-new">
+  <div class="tl-dot dot-y"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-25</span>
+    <strong style="color:#d29922">【第25天晚】⚠️ 伊朗正式拒绝美方停火方案（Al Jazeera·03-25）：称条件"极端主义、不合理" · 特朗普宣布暂停对伊朗能源设施打击10天（至4月6日） · Brent $98.28（↓-5.9%）/ WTI $87.68（↓-5.1%）大跌后反弹 <span class="badge-new">NEW</span></strong>
+  </div>
+  <div class="tl-text">【Al Jazeera·2026-03-25·伊朗拒绝停火】 ⚠️ 伊朗正式拒绝美方停火提案，外长将其定性为"极端主义、不合理"的条件——伊朗外长声明伊朗未与美国进行任何实质谈判，立场未变（Al Jazeera ↗）。【CNN·2026-03-25/26·特朗普暂停打击】 🕊️ 特朗普宣布暂停对伊朗能源设施打击10天（至4月6日美东时间晚8时），称"谈判正在进行"——这是特朗普在"非常好的谈话"后给出的第二次延期，目的是为外交斡旋争取时间（CNN ↗）。油价当日大幅下跌（缓和预期），Brent跌至$98.28（↓-5.9%），WTI至$87.68（↓-5.1%），随后因伊朗拒绝方案及局势未实质缓和而反弹。</div>
+  <div class="tl-src"><span class="src"><a href="https://www.aljazeera.com/news/2026/3/25/iran-calls-us-proposal-to-end-war-maximalist-unreasonable" target="_blank">Al Jazeera：伊朗称停火条件极端 ↗</a></span>
+<span class="src"><a href="https://www.cnn.com/2026/03/26/world/live-news/iran-war-us-israel-trump" target="_blank">CNN：特朗普暂停打击10天 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-25</span>
+    <strong style="color:#58a6ff">【第26天巡检】📉 油价继续大跌：Brent跌破$100至$98.28（↓-5.9%），WTI至$87.68（↓-5.1%）· 🕊️ 特朗普宣布美伊谈判取得进展，提出15点停火计划（拆除核项目、停止支援代理组织、重新开放霍尔木兹）· ⚠️ 伊朗官方否认谈判进展，称立场不变 · OPEC+维持4月增产计划不变（+20.6万桶/天） </strong>
+  </div>
+  <div class="tl-text">【IndiaTimes/TradingEconomics·2026-03-25·油价大跌】 📉 2026年3月25日Brent跌破$100，期货跌至$98.28（↓-5.9%），盘中低至$97.57；WTI跌至$87.68（↓-5.1%），盘中低至$86.72 ——油价大幅下跌主要源于美伊冲突缓和希望；特朗普宣布与伊朗谈判取得进展，提出15点计划包括拆除伊朗核项目、停止支援代理组织、重新开放霍尔木兹海峡；但伊朗官员随后否认特朗普的声称（ IndiaTimes ↗ ； TradingEconomics ↗ ）。 【Reuters/IrishTimes·2026-03-25·伊朗否认谈判】 ⚠️ 伊朗官方否认谈判正在进行 ——伊朗官员驳斥特朗普关于谈判取得进展的声称，称德黑兰立场未变，排除任何协议；这与特朗普"非常好的谈话"说法形成矛盾（ Irish Times ↗ ）。 【EnerData/OPEC·2026-03-25·OPEC+产量】 🏛️ OPEC+维持4月增产计划不变 ——4月起每月解封20.6万桶/天；沙特产量维持约900万桶/天；3月OPEC+产量约42.72 mb/d（ E</div>
+  <div class="tl-src"><span class="src"><a href="https://www.indiatimes.com/" target="_blank">IndiaTimes：Brent跌破$100 ↗</a></span>
+<span class="src"><a href="https://www.irishtimes.com/" target="_blank">Irish Times：伊朗否认谈判 ↗</a></span>
+<span class="src"><a href="https://www.enerdata.net/" target="_blank">EnerData：OPEC+产量 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-23</span>
+    <strong style="color:#58a6ff">15:07 【第25天下午巡检】📉 WTI盘中进一步下探至$88.13（↓超10%）· 🏭 Baker Hughes（03-20周报）：美国钻机552口（-1 WoW），油井↑+2至414口，气井↓-2至131口，德州从年内高点回落 · 🏛️ OPEC+确认4月5日召开月度产量审查会议，Q2起每月解封20.6万桶/天 · ⚓ 胡塞红海暂停持续第25天无新袭击 </strong>
+  </div>
+  <div class="tl-text">【CNBC·2026-03-23·油价走势】 📉 WTI期货盘中进一步下探至$88.13（↓超10%，较前收盘$98.81↓-$10.68），Brent维持$101.44附近 ——特朗普延期通牒消息持续压制战争溢价；外交缓和预期推动多头大幅减仓；WTI-Brent价差扩大至$13.31；分析师指出若谈判实质推进，短期Brent可能进一步回落至$90-95区间（ CNBC ↗ ）。 【Baker Hughes·2026-03-20·钻机周报】 🏭 美国活跃钻机总数552口（环比-1），油井↑+2至414口，气井↓-2至131口，德州钻机从2026年年内高点回落 ——即便Brent突破$100，页岩油主要运营商仍维持既定资本支出纪律，未出现明显扩产信号；分析师认为高油价对钻探活动的刺激效应存在1-2个季度的滞后（ Baker Hughes ↗ ； KLVT News ↗ ）。 【OPEC+·03-01决定/03-23预告·产量审查】 🏛️ OPEC+确认4月5日召开月度产量审查会议，Q2起每月解封20.6万桶/天，总有效削减约586万桶/天（~占全球需求5.7%），条件为"灵活且视市场状况</div>
+  <div class="tl-src"><span class="src"><a href="https://www.cnbc.com/2026/03/23/oil-prices-trump-iran-strait-of-hormuz-wti-crude-middle-east-lng-gas.html" target="_blank">CNBC：WTI跌至$88.13 ↗</a></span>
+<span class="src"><a href="https://rigcount.bakerhughes.com/" target="_blank">Baker Hughes：552口钻机（03-20） ↗</a></span>
+<span class="src"><a href="https://www.bloomberg.com/news/articles/2026-03-01/opec-agrees-in-principle-to-206k-b-d-hike-for-april-delegates" target="_blank">Bloomberg：OPEC+4月5日会议 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-y"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-23</span>
+    <strong style="color:#d29922">12:27 【第25天午间巡检】🚢 Kpler：过去7天霍尔木兹AIS可见过境仅16次（↓92%），247艘油轮困在阿拉伯湾，64艘转道延布装载 · ⚠️ 胡塞两名高层官员发信号：计划恢复红海袭击（The National·03-17）· 马士基/达飞/赫伯罗特/MSC全面转回好望角线路（gCaptain·03-01）· 价格：Brent约$101 / WTI约$91-92 </strong>
+  </div>
+  <div class="tl-text">【Kpler·2026-03-22·船运数据】 🚢 过去7天霍尔木兹AIS可见过境仅16次（11出5入），较冲突前↓约92% ——阿拉伯湾内247艘MR以上型油轮被困（约占全球油轮总吨位6%）；64艘原油油轮已将延布（沙特）列为目的地，作为霍尔木兹替代装载点；LPG出口量过去7天约150万桶，创12个月最低；伊朗继续允许特定国家（中印巴）船只有限通行（ Al Arabiya/Kpler ↗ ； Atlas Institute ↗ ）。 【The National·2026-03-17·胡塞动态】 ⚠️ 两名胡塞高层官员发出信号：计划恢复红海船只袭击，25天沉默期或将终结 ——自伊朗遭美以打击以来胡塞武装已维持约25天未对红海船只发动袭击，分析人士认为是德黑兰战略克制；但The National获悉两名胡塞高层官员已发出信号，计划重新启动红海攻击，此举将使苏伊士运河航线再度面临关闭风险（ The National ↗ ； Long War Journal ↗ ）。 【gCaptain/Maersk·2026-03-01·航运绕行】 🌍 马士基ME11/MECL、达飞、赫伯罗特、地中海航运</div>
+  <div class="tl-src"><span class="src"><a href="https://english.alarabiya.net/News/middle-east/2026/03/04/oil-tanker-traffic-through-strait-of-hormuz-down-90-pct-kpler" target="_blank">Al Arabiya/Kpler：霍尔木兹过境↓92% ↗</a></span>
+<span class="src"><a href="https://www.thenationalnews.com/news/mena/2026/03/17/mystery-of-no-houthi-attacks-on-red-sea-ships-three-weeks-into-iran-war/" target="_blank">The National：胡塞将恢复袭击 ↗</a></span>
+<span class="src"><a href="https://gcaptain.com/red-sea-comeback-falters-as-maersk-diverts-ships-back-around-cape/" target="_blank">gCaptain：马士基转回好望角 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-y"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-23</span>
+    <strong style="color:#d29922">10:22 【第25天上午巡检2】🔀 伊朗官方否认停火谈判正在进行，与特朗普"非常好的谈话"声称形成矛盾 · 伊朗外长阿拉格奇宣布"选择性封锁"正式框架："海峡只对敌人国家关闭，中印巴日可通行" · 美方六项停火条件泄露（核设施严格监督、导弹存量限1000枚以内、停止资助真主党/胡塞/哈马斯） · 油价维持：Brent $101.44 / WTI $92.29（08:17巡检数据） </strong>
+  </div>
+  <div class="tl-text">【Bloomberg·2026-03-23·停火谈判信号】 🔀 特朗普延长通牒后，停火谈判开始传出但伊朗官方否认 ——Bloomberg报道称"停火谈判正式启动"，但伊朗政府发言人随即否认谈判正在进行，称特朗普关于"非常好的谈话"的描述与事实不符（ Bloomberg ↗ ； CNBC ↗ ）。 【Al Jazeera·2026-03-21/23·结构性变化】 🚢 伊朗外长阿拉格奇宣布"选择性封锁"正式框架 ——"霍尔木兹海峡只对我们敌人的国家关闭，其他国家的船只可以通过"；中国、印度、巴基斯坦已可通行，日本预计即将加入名单（ Al Jazeera：日本通行 ↗ ； Al Jazeera：审核系统 ↗ ）。 【The Defense News·2026-03-23·谈判框架】 📋 美方六项停火条件泄露 ：①核设施置于严格国际监督下；②限制导弹存量至1000枚以内；③停止资助真主党/胡塞武装/哈马斯；④释放美国人质；⑤赔偿受攻击国家损失；⑥终止铀浓缩至90%以上。伊朗尚未正式回应（ The Defense News ↗ ）。</div>
+  <div class="tl-src"><span class="src"><a href="https://www.bloomberg.com/news/articles/2026-03-23/trump-backs-off-from-iran-threat-as-ceasefire-talks-get-underway" target="_blank">Bloomberg：停火谈判开始 ↗</a></span>
+<span class="src"><a href="https://www.aljazeera.com/news/2026/3/21/iran-says-it-will-allow-japanese-ships-to-transit-the-strait-of-hormuz" target="_blank">Al Jazeera：伊朗"选择性封锁"框架 ↗</a></span>
+<span class="src"><a href="https://www.thedefensenews.com/news-details/US-Sets-Six-Conditions-for-Iran-Ceasefire-Agreement-Proposes-Limits-on-Nuclear-and-Missile-Capabilities/" target="_blank">Defense News：美方六项条件 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-g"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-23</span>
+    <strong style="color:#3fb950">08:17 【第25天上午巡检】🕊️ 特朗普宣布将霍尔木兹48小时通牒延长5天（"非常好的谈话"后）· 印度LPG船Jag Vasant/Pine Gas已经霍尔木兹过境（Bloomberg·03-23）· 油价急跌：Brent $101.44（↓-10.4%/-$11.77）/ WTI $92.29（↓-6.6%/-$6.52） </strong>
+  </div>
+  <div class="tl-text">【CSMonitor/CNN·2026-03-23·重大缓和信号】 🕊️ 特朗普宣布将霍尔木兹海峡48小时通牒延长5天 ——美国总统特朗普表示，在与德黑兰进行"非常好的谈话"后，决定将原定2026-03-23 23:44 GMT到期的48小时通牒推迟5天，暂不对伊朗电力设施实施打击；CNN报道称谈判"非常积极"；市场对外交缓和信号迅速反应，油价盘中急跌（ CSMonitor ↗ ； CNN Live ↗ ）。 【Bloomberg·2026-03-23·船运动态】 🚢 两艘印度LPG大型运输船（Jag Vasant、Pine Gas）正在经霍尔木兹海峡过境 ——两艘印度国旗超大型气体船（VLGC）沿紧贴伊朗海岸线的通道向北航行，已获伊朗选择性通行许可；这是近期伊朗"审查制度"（vetting system）下通过的最新船只，伊朗允许非美西方关联船只有限通行（ Bloomberg ↗ ）。 【Fortune/CNBC·2026-03-23·油价急跌】 📉 Brent急跌至$101.44（↓-$11.77/-10.4%）/ WTI跌至$92.29（↓-6.6%） ——特朗普延期通牒消息传出</div>
+  <div class="tl-src"><span class="src"><a href="https://www.csmonitor.com/USA/Military/2026/0323/trump-iran-strait-of-hormuz" target="_blank">CSMonitor：通牒延期5天 ↗</a></span>
+<span class="src"><a href="https://www.bloomberg.com/news/articles/2026-03-23/two-indian-lpg-carriers-are-in-transit-through-strait-of-hormuz" target="_blank">Bloomberg：印度LPG船过境 ↗</a></span>
+<span class="src"><a href="https://fortune.com/article/price-of-oil-03-23-2026/" target="_blank">Fortune：油价急跌 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-23</span>
+    <strong style="color:#58a6ff">06:13 【第25天早间巡检】EIA：截至3月13日原油库存+620万桶至4.493亿桶（3连增）· Kpler：3月伊朗累计出口1,600万桶（~100万桶/天），1,170万桶经霍尔木兹发往中国 · Vortexa：伊朗暗船队利用率58%历史高位，浮仓近2亿桶 · 48小时通牒剩余约17.5小时（到期2026-03-23 23:44 GMT） </strong>
+  </div>
+  <div class="tl-text">【EIA·截至2026-03-13·库存周报】 📦 美国商业原油库存增加620万桶至4.493亿桶，3连增，仍低于五年均值1% ——炼厂日均加工量1,620万桶，炼厂利用率91.4%；库存累积为市场提供短期缓冲，但绝对水位仍低于正常水平（ EIA周报 ↗ ）。 【Kpler·2026-03-16·出口追踪】 🛢️ 伊朗3月累计出口已超1,600万桶（约100万桶/天），其中1,170万桶经霍尔木兹海峡发往中国 ——伊朗通过允许本国油轮过境维持对华出口；Kpler警告若战争持续至3月底油价或冲$150（ CNBC/Kpler ↗ ）。 【Vortexa·2026·暗船队分析】 🚢 伊朗暗船队利用率升至58%历史高位，浮仓近2亿桶（较2022年+45%），为结构性瓶颈 ——吨天需求较2022年上升近30%；Vortexa称暗船队是"不可或缺的资产，也是结构性瓶颈"，进一步扩张须新增运力（ Vortexa ↗ ）。 【倒计时·06:13】 ⏰ 48小时通牒剩余约17.5小时 （到期2026-03-23 23:44 GMT；北京时间2026-03-24 07:44）；各市场等待通牒结果，若到期</div>
+  <div class="tl-src"><span class="src"><a href="https://www.eia.gov/petroleum/supply/weekly/" target="_blank">EIA：原油库存周报 ↗</a></span>
+<span class="src"><a href="https://www.cnbc.com/2026/03/11/iran-ships-oil-china-strait-hormuz-closure-.html" target="_blank">CNBC/Kpler：伊朗出口 ↗</a></span>
+<span class="src"><a href="https://www.vortexa.com/insights/irans-dark-fleet-hits-full-capacity" target="_blank">Vortexa：暗船队 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-r"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-23</span>
+    <strong style="color:#f85149">04:04 【第24天晨间巡检】🚨 伊朗威胁布雷整个波斯湾（ABC/CNN/WashPost·03-23）· 伊朗在通牒到期前发动新一轮海湾打击（Bloomberg·03-23）· Brent升至$113.21（↑0.9%）/ WTI $98.81（↑0.6%）（CNBC·03-23）· 高盛将3-4月Brent均价预测上调至$110，称"史上最大供应冲击"（Bloomberg·03-23）· Kpler：战争持续至3月底或冲$150 · Polymarket霍尔木兹4月恢复概率升至37%（↑10pp） </strong>
+  </div>
+  <div class="tl-text">【ABC News/CNN/WashPost/PBS·2026-03-23·重大升级】 🚨 伊朗国防委员会威胁：若美军攻击伊朗海岸或岛屿，将在"整个波斯湾布雷"，所有通道将被封闭 ——伊朗国防委员会声明：任何针对伊朗海岸或岛屿的攻击将导致"波斯湾所有通道和通信线路被各型海雷布设"，"整个波斯湾将实质封闭，责任归咎于威胁方"；伊朗议长卡利巴夫（Qalibaf）警告：若伊朗电站被炸，"整个地区的关键基础设施——包括能源设施和各海湾国家的饮用水淡化设施——将被视为合法目标并不可逆地摧毁"；这是迄今来自伊朗最严厉的波斯湾核升级威胁（ ABC News ↗ ； CNN ↗ ； WashPost ↗ ； PBS NewsHour ↗ ）。 【Bloomberg·2026-03-23·最新动态】 💥 伊朗在48小时通牒到期前（今日约23:44 GMT）对海湾目标发动新一轮打击 ——伊朗在通牒到期前数小时对波斯湾目标实施新打击，阿联酋报告遭无人机和导弹袭击；Brent May合约升0.9%至$113.21，WTI May合约升0.6%至$98.81（ Bloomberg ↗ ； CNBC ↗ ）。 【</div>
+  <div class="tl-src"><span class="src"><a href="https://abcnews.com/International/live-updates/iran-live-updates-trumps-48-hour-deadline-expire/?id=131316431" target="_blank">ABC News：伊朗布雷威胁 ↗</a></span>
+<span class="src"><a href="https://www.bloomberg.com/news/articles/2026-03-23/iran-strikes-gulf-targets-as-trump-s-hormuz-deadline-approaches" target="_blank">Bloomberg：伊朗打击海湾目标 ↗</a></span>
+<span class="src"><a href="https://www.bloomberg.com/news/articles/2026-03-23/goldman-sachs-raises-oil-forecasts-on-largest-ever-supply-shock" target="_blank">Bloomberg：高盛上调预测$110 ↗</a></span>
+<span class="src"><a href="https://www.cnbc.com/2026/03/23/oil-prices-trump-iran-strait-of-hormuz-wti-crude-middle-east-lng-gas.html" target="_blank">CNBC：价格上涨 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-y"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-23</span>
+    <strong style="color:#d29922">01:58 【第24天凌晨巡检】特朗普03-20"不寻求停火"但考虑收缩军事行动（矛盾信号持续）· 伊朗03-18正式拒绝停火谈判 · 48小时通牒剩余约22小时（到期03-23 23:44 GMT）· Brent微跌$112.19 / WTI微升$99.00（亚洲早盘）· Baker Hughes 552口（03-20，-1 WoW）· OPEC+下次04-05 · 胡塞暂停第24天 </strong>
+  </div>
+  <div class="tl-text">【CNBC/NBC News·2026-03-20·停火谈判】 🕊️ 特朗普"不寻求停火"但暗示考虑收缩军事行动 ——特朗普3月20日对记者表示："我不想要停火，我们可以对话，但我不想搞停火。"同时称正在考虑"收缩军事行动（winding down）"，形成矛盾信号；伊朗外长则表示伊朗不寻求停火，战争须以"敌方不敢再犯"的方式结束（ CNBC ↗ ； Time/Iran 03-18 ↗ ）。 【FX Daily Report·2026-03-23·技术分析】 💹 WTI技术面：尝试突破对称三角形上轨，若确认突破目标$105+ ——当前WTI亚洲早盘$99.00，当日区间$93.42–$99.67；100日均线仍处于200日均线上方，维持多头结构；Brent亚洲早盘$112.19，当日区间$105.05–$113.11，较前日收盘$112.80略有回落（ FX Daily Report ↗ ）。 【各市场·01:58】 📊 状态汇总： 48小时通牒倒计时距到期（2026-03-23 23:44 GMT）约22小时；AGSI欧洲气库：28.51%（03-21）；Baker Hughes：5</div>
+  <div class="tl-src"><span class="src"><a href="https://www.cnbc.com/2026/03/20/trump-iran-war-ceasefire.html" target="_blank">CNBC：特朗普不寻求停火 ↗</a></span>
+<span class="src"><a href="https://fxdailyreport.com/wti-crude-oil-price-analysis-for-march-23-2026/" target="_blank">FX Daily Report：WTI技术分析 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-r"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-22</span>
+    <strong style="color:#f85149">23:51 【第23天深夜巡检2】沙特东西管道加速绕行霍尔木兹（Bloomberg·03-22）· 美财政部30天制裁豁免GL U：1.4亿桶浮仓伊朗原油4月19日前须卸货（CNN/WashPost·03-20）· 胡塞"手指扣扳机"威胁恢复红海袭击（AP/Times of Israel）· 48小时通牒剩余约22小时 · 价格维持：Brent $112.80 / WTI $98.65（周日关市） </strong>
+  </div>
+  <div class="tl-text">【Bloomberg·2026-03-22·深度报道】 🛢️ 沙特阿拉伯加速启用东西管道（延布港）绕过霍尔木兹 ——Bloomberg报道，沙特已将东西管道（East-West Pipeline）输送能力扩至满负荷运行，延布港油轮数量从3月15日的16艘激增至64艘以延布为下一目的地；沙特同时与印度、日本、韩国签署"不中断供应"协议，向亚洲主要买家保证原油供应不受霍尔木兹影响；管道容量约200万桶/天，可部分缓解约8 mb/d的供应缺口（ Bloomberg ↗ ）。 【CNN/WashPost/NBC·2026-03-20·重要政策】 💰 美国财政部对1.4亿桶浮仓伊朗原油给予30天临时制裁豁免（GL U） ——美国财政部发布通用许可证GL U，允许截至2026年3月20日已在船上的伊朗原油在30天内（即2026年4月19日前）完成卸货，不受现行制裁限制；预计约1.4亿桶原油受惠；财政部长贝森特（Bessent）称此举"定向且临时"，旨在缓解美国盟友面临的能源价格冲击；分析人士指出这是短期价格压力阀，不改变长期制裁框架（ CNN ↗ ； WashPost ↗ ； NBC News ↗</div>
+  <div class="tl-src"><span class="src"><a href="https://www.bloomberg.com/news/features/2026-03-22/strait-of-hormuz-trump-threatens-iran-but-saudi-arabia-finds-pipeline-bypass" target="_blank">Bloomberg：沙特东西管道绕行 ↗</a></span>
+<span class="src"><a href="https://www.cnn.com/2026/03/20/politics/iran-oil-sanctions-lifting" target="_blank">CNN：伊朗原油30天制裁豁免 ↗</a></span>
+<span class="src"><a href="https://wtop.com/world/2026/02/yemens-iranian-backed-houthi-rebels-to-resume-attacks-on-shipping-in-the-red-sea-corridor-2-rebel-officials-tell-ap/" target="_blank">AP/WTOP：胡塞恢复威胁 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-22</span>
+    <strong style="color:#58a6ff">21:44 【第23天深夜巡检】Windward AI（03-22今日）：过去7天仅16艘船过境霍尔木兹（11出+5入）· 波斯湾292艘油轮 · 伊朗海上在途库存1.61亿桶 · 马士基宣布3月25日起全球征收紧急附加费 · OPEC+超产国补偿减产承诺增加三倍至82.9万桶/天 · 48小时倒计时剩余约34小时 · 价格维持：Brent $112.80 / WTI $98.65（周日关市） </strong>
+  </div>
+  <div class="tl-text">【Windward AI·2026-03-22·今日最新数据】 ⛴️ 霍尔木兹过境量持续极低：过去7天仅16艘船成功过境（11艘出港，5艘入港） ——波斯湾内当前滞留油轮约292艘；整个海湾区域过去7天原油离港量约2300万桶（含伊朗约800万桶）；伊朗海上在途原油库存约1.61亿桶（其中约1.27亿桶在东亚水域）；沙特延布港超过30艘油轮停靠，64艘以此为下一目的地——相比3月15日的16艘，延布港集聚态势明显加速（ Windward AI ↗ ）。 【Vortexa·2026-03-18·深度分析】 📊 中东海湾原油储量降至12个月异常低位，HSFO市场收紧 ——Vortexa分析显示，霍尔木兹中断导致中东海湾原油储量降至过去12个月异常低位，重质酸原油供应趋紧，VLCC即期运价飙升超过107,000美元/天（ Vortexa ↗ ）。 【Maersk·2026-03-22·全球公告】 🚢 马士基（Maersk）宣布：2026年3月25日起，全球所有航线无例外征收紧急燃油附加费及航运中断附加费 ——这是继3月1日停航公告后马士基对航运危机的最新应对，将直接推高全球集装箱运价，供应链</div>
+  <div class="tl-src"><span class="src"><a href="https://windward.ai/blog/march-22-maritime-intelligence-daily/" target="_blank">Windward AI：03-22今日数据（16艘/292艘/1.61亿桶） ↗</a></span>
+<span class="src"><a href="https://www.vortexa.com/insights/puzzling-meg-oil-storage-levels" target="_blank">Vortexa：中东海湾储量12月低位 ↗</a></span>
+<span class="src"><a href="https://www.maersk.com/stay-ahead" target="_blank">Maersk：3月25日起全球紧急附加费 ↗</a></span>
+<span class="src"><a href="https://oilprice.com/Latest-Energy-News/World-News/OPEC-Compensation-Cuts-Triple-as-Key-Producers-Move-to-Rein-in-Oversupply.html" target="_blank">OilPrice.com：OPEC+补偿减产三倍 ↗</a></span>
+<span class="src"><a href="https://www.aljazeera.com/news/2026/3/22/trumps-changing-messages-on-iran-war-what-does-it-say-about-us-strategy" target="_blank">Al Jazeera：特朗普多重信号分析 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-r"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-22</span>
+    <strong style="color:#f85149">19:39 【第23天晚间巡检】伊朗威胁若美军动手将"立即完全封锁"霍尔木兹海峡（PBS/Irish Times） · NBC：伊朗对48小时通牒"不为所动" · CNBC："经济上特朗普只有两周窗口期" · 48小时通牒剩余约28小时 · 价格维持：Brent $112.80 / WTI $98.65（周日关市） </strong>
+  </div>
+  <div class="tl-text">【PBS NewsHour/Irish Times·2026-03-22】 🚨 伊朗威胁升级：若美国兑现通牒将"立即完全封锁"霍尔木兹海峡 ——伊朗军方声明从早前的"打击美国能源/IT/淡水设施"进一步升级为明确宣布：若特朗普对电力设施动手，将立即将当前"选择性封锁"转变为"完全封锁"，禁止包括中国、印度、巴基斯坦在内的一切船只过境，进一步切断全球约20%的石油贸易通道。这意味着伊朗已将"完全关闭牌"作为终极威慑底牌亮出，当前战争风险溢价面临再次跳升压力（ PBS NewsHour ↗ ； Irish Times ↗ ）。 【NBC News·2026-03-22】 📊 伊朗对48小时通牒"不为所动"（Unswayed） ——NBC News报道伊朗官员坚持强硬立场，外交部重申"不会在最后通牒压力下谈判"；分析人士指出德黑兰正在评估美国的实际行动意愿，以决定是否在截止时间前作出任何姿态性让步（ NBC News ↗ ）。 【CNBC·2026-03-22】 💰 "经济上特朗普只有两周窗口期" ——CNBC分析称，市场和经济学家估算特朗普可承受当前霍尔木兹封锁造成的经济冲击的时间窗口约为</div>
+  <div class="tl-src"><span class="src"><a href="https://www.pbs.org/newshour/world/iran-threatens-to-completely-close-strait-of-hormuz-and-hit-power-plants-following-trumps-ultimatum" target="_blank">PBS NewsHour：伊朗威胁完全封锁 ↗</a></span>
+<span class="src"><a href="https://www.nbcnews.com/world/iran/iran-unswayed-trumps-48-hour-deadline-threats-obliterate-energy-infras-rcna264607" target="_blank">NBC News：伊朗不为所动 ↗</a></span>
+<span class="src"><a href="https://www.cnbc.com/2026/03/22/iran-war-strait-of-hormuz-trump-oil-prices-economy.html" target="_blank">CNBC：两周经济窗口 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-22</span>
+    <strong style="color:#58a6ff">17:34 【第23天下午巡检2】48小时倒计时剩余约30小时（截止2026-03-23 23:44 GMT）· 联合国安理会通过第2812号决议：延续胡塞武装红海袭击报告机制6个月 · 过去2小时无新重大升级信号 · 价格维持：Brent $112.80 / WTI $98.65（周日亚洲盘，无新成交） </strong>
+  </div>
+  <div class="tl-text">【各市场·2026-03-22·17:34】 📊 48小时最后通牒倒计时：距到期（2026-03-23 23:44 GMT）约30小时 ——过去2小时内，霍尔木兹、美伊谈判均无新重大进展；伊朗已对特朗普通牒发出正式军事回应（详见凌晨05:01条目），双方态势维持高度紧张但无最新行动报告；价格维持15:28亚洲盘水平：Brent $112.80 / WTI $98.65，无新成交。 【联合国安理会·2026-03-22】 ⚓ 联合国安理会通过第2812号决议 ——决议授权将对胡塞武装红海商船袭击情况进行报告的监督机制延续6个月；目前胡塞自2月28日开战以来已暂停红海袭击约23天，但随时可能重启（来源： UN Press ↗ ）。 【数据维持·17:34】AGSI欧洲气库：28.51%（03-21，无新数据）· Baker Hughes：552口（03-20，无新数据）· EIA原油库存：4.493亿桶（3/13周，无新数据）· OPEC+：无新声明（下次04-05）· 胡塞/红海：维持暂停约23天。</div>
+  <div class="tl-src"><span class="src"><a href="https://press.un.org/en/2026/sc16274.doc.htm" target="_blank">UN Press：安理会第2812号决议 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-r"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-22</span>
+    <strong style="color:#f85149">15:28 【第23天下午巡检】美军打击霍尔木兹海峡布雷船只（ABC News）· 特朗普称伊朗已准备好谈判停火但"条件尚不足够"（NBC News·03-20）· 亚洲炼油厂为非中东原油支付创纪录溢价（OilPrice.com）· Brent微升至$112.80 / WTI $98.65（亚洲盘+0.52%/+0.43%） </strong>
+  </div>
+  <div class="tl-text">【ABC News·2026-03-22】 🚢 美军在霍尔木兹海峡打击伊朗布雷船只 ——美国海军在封锁期间对海峡内正在布雷的船只发动攻击，显示双方在海峡内军事对抗持续升级；目前霍尔木兹仍无开放信号，布雷行动被视为伊朗阻止商船复航的主要手段之一（ ABC News ↗ ）。 【NBC News·2026-03-20】 🕊️ 特朗普称伊朗已准备好谈判停火，但本人"尚未准备好接受现有条件" ——Trump表示伊朗已传达愿意谈判停火的信号，但他认为"条件还不够好"（"the terms aren't good enough yet"）；这与伊朗外长Araghchi"我们不寻求停火"的公开声明形成矛盾，显示内部外交通道仍在运作但分歧巨大（ NBC News ↗ ）。 【OilPrice.com·2026-03-22·15:28】 📈 亚洲炼油厂为非中东原油支付创纪录溢价 ——受中东地缘政治冲突持续影响，亚洲精炼商被迫为来自西非、美国、巴西、北海等非中东地区的原油支付前所未有的高额溢价，供应链重组趋势加速（ OilPrice.com ↗ ）。 【价格·15:28】 Brent $112.80（+0</div>
+  <div class="tl-src"><span class="src"><a href="https://abcnews.com/Politics/us-targets-mine-laying-vessels-strait-hormuz-amid/story?id=131228813" target="_blank">ABC News：美军打击布雷船只 ↗</a></span>
+<span class="src"><a href="https://www.nbcnews.com/politics/donald-trump/iran-negotiate-ceasefire-deal-trump-kharg-hormuz-oil-rcna263474" target="_blank">NBC News：特朗普停火表态 ↗</a></span>
+<span class="src"><a href="https://oilprice.com/" target="_blank">OilPrice.com：亚洲炼油厂溢价 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-22</span>
+    <strong style="color:#58a6ff">13:23 【第23天午间巡检】Kpler（03-12）：77艘VLCC滞留波斯湾（全球VLCC船队8.5%）· 中东地区984艘船受困（全球船队22%）· VLCC运费期货翻倍至$13.8/桶 · 好望角绕行每航次额外$100-200万+10-15天 · 波斯湾/阿曼湾确认10+起GNSS干扰事件 · 48小时倒计时剩余约34小时 · 价格维持：Brent $112.19 / WTI $98.23（周日关市） </strong>
+  </div>
+  <div class="tl-text">【Kpler·2026-03-12·油轮包租市场深度分析】 ⛴️ 霍尔木兹危机造成史上最严重油轮市场中断：77艘VLCC（超大型原油轮）被困波斯湾，占全球VLCC船队8.5%；中东地区整体受困船只达984艘，占全球船队22% ——霍尔木兹过境量较战前骤降92%。VLCC波斯湾至中国运费期货（Mideast Gulf→China）翻倍至$13.8/桶，实物市场报价约WS525，折合约$15/桶，接近2020年峰值。好望角绕行替代方案：每航次额外成本$100-200万，增加10-15个航行日；红海路线因胡塞威胁同样不可靠，苏伊士最大级别船（Suezmax）无法承载VLCC，包租商面临路由两难困境。此外，波斯湾和阿曼湾已确认超过10起GNSS（GPS）干扰事件，增加航行安全风险；"影子船队"已向东南亚重新布局，为后续制裁规避预做准备。 【价格·13:23】 周日关市，维持：Brent $112.19 / WTI $98.23 ；48小时最后通牒倒计时：距到期（2026-03-23 23:44 GMT）约34小时。</div>
+  <div class="tl-src"><span class="src"><a href="https://www.kpler.com/blog/when-the-strait-closes-how-tanker-charterers-navigate-the-hormuz-crisis" target="_blank">Kpler：霍尔木兹危机油轮市场深度分析 ↗</a></span>
+</div>
+</div>
+<div class="tl-item">
+  <div class="tl-dot dot-b"></div>
+  <div class="tl-meta">
+    <span class="tl-date">2026-03-22</span>
+    <strong style="color:#58a6ff">11:17 【第23天上午巡检2】霍尔木兹仍无开放信号：伊朗遭攻击期间拒绝讨论（Bloomberg·03-20）；"审核通行制"建立中（Al Jazeera·03-20）· Windward(03-15)：好望角绕行69次（3月14日）；NORA VLCC载~202万桶卡尔赫岛原油驶向宁波 · 胡塞信号分裂：宣布"结束"袭击与重启威胁并存 · Baker Hughes详细：414口油钻（+2）/131口气钻（-2）· 价格/AGSI：周日关市，维持$112.19/$98.23 </strong>
+  </div>
+  <div class="tl-text">【Bloomberg·2026-03-20】 🚢 伊朗在遭受美以军事打击期间明确拒绝讨论开放霍尔木兹海峡 ——伊朗官方表示，在继续承受攻击的同时无意谈判开放海峡；据Al Jazeera（03-20）报道，IRGC正在开发"审核通行制"（vetting system）——对船只逐案审批，但系统仍在建立中，无系统性开放时间表。目前已允许过境国家：日本、印度、巴基斯坦、伊拉克、马来西亚、中国；美西方运营船只仍被拒绝。 【Windward Maritime Intelligence·2026-03-15·船运数据】 ⛴️ 好望角绕行持续高位：3月14日记录69次过境（东向35次，西向34次） ，反映全球船运持续绕开霍尔木兹+红海双重阻塞；具体动态：VLCC NORA（IMO 9237539）3月7日从卡尔赫岛装载约202万桶原油启航，正驶向中国宁波（预计4月初抵达）；制裁油轮SERENA（3月11日离港）、ARK III（3月15日离港）合计携带约268万桶原油。 【Maritime Executive / gCaptain·03-17】 ⚓ 胡塞武装信号分裂：同期"宣布结束红海袭击"与"威胁</div>
+  <div class="tl-src"><span class="src"><a href="https://www.bloomberg.com/news/articles/2026-03-20/iran-unwilling-to-talk-about-opening-hormuz-while-under-attack" target="_blank">Bloomberg：伊朗拒绝讨论开放霍尔木兹 ↗</a></span>
+<span class="src"><a href="https://www.aljazeera.com/news/2026/3/20/iran-developing-a-vetting-system-for-strait-of-hormuz-transit-report" target="_blank">Al Jazeera：伊朗审核通行制 ↗</a></span>
+<span class="src"><a href="https://windward.ai/blog/march-15-maritime-intelligence-daily/" target="_blank">Windward：好望角69次/NORA VLCC ↗</a></span>
+<span class="src"><a href="https://maritime-executive.com/article/houthis-announce-end-of-red-sea-shipping-attacks" target="_blank">Maritime Executive：胡塞宣布结束袭击 ↗</a></span>
+<span class="src"><a href="https://gcaptain.com/red-sea-corridor-slips-back-into-crisis-as-houthi-threats-resurface/" target="_blank">gCaptain：胡塞威胁重启 ↗</a></span>
+<span class="src"><a href="https://rigcount.bakerhughes.com/" target="_blank">Baker Hughes：414油/131气详细 ↗</a></span>
+</div>
+</div></div>
+  </div>
+</div>
+    
+<div class="section p-red" id="sec-hormuz">
+  <div class="section-header">
+    <span style="font-size:18px">🚢</span>
+    <span class="section-title">霍尔木兹海峡通航状态</span>
+    <span class="section-badge" style="color:#f85149;border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.1)">实质封锁</span>
+    <span class="section-sub">来源: 手动维护 (Kpler/Windward AI/IEA OMR)</span>
+  </div>
+  <div class="section-body">
+    <div class="g2">
+      <div>
+        <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px;margin-bottom:12px">
+          <div style="font-size:11px;color:#8b949e;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">📊 通行量对比</div>
+          <div class="hbar">
+            <div class="hbar-lbl">封锁前日过境</div>
+            <div class="hbar-track"><div class="hbar-fill" style="width:100%;background:#58a6ff"></div></div>
+            <div class="hbar-val" style="color:#58a6ff">138 艘/天</div>
+          </div>
+          <div class="hbar">
+            <div class="hbar-lbl">当前日过境</div>
+            <div class="hbar-track"><div class="hbar-fill" style="width:0%;background:#f85149"></div></div>
+            <div class="hbar-val" style="color:#f85149">美伊战争第30天，霍尔木兹海峡的商业油轮过境量已较战前平均水平下降约40%。根据劳氏日报（Lloyd's List）的航运数据，每日通过海峡的油轮数量从战前的约25-30艘降至目前的15-18艘（截至2026年3月28日）。主要航运公司因高昂的战争险费率（已飙升至原费率的20-30倍）和潜在的袭击风险而选择避开该区域或大幅减少运输量。美国第五舰队已加强在该区域的军事存在，并组织了护航编队，但伊朗革命卫队多次进行警告性演习，并声称有权检查任何怀疑运载军事物资的船只，这进一步加剧了航运的不确定性。 艘/天</div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="kpi kv-red">
+            <div class="kpi-label">封锁前日均石油过境</div>
+            <div class="kpi-val">~20 mb/d</div>
+          </div>
+          <div class="kpi kv-red">
+            <div class="kpi-label">已遭打击船只</div>
+            <div class="kpi-val">16 艘</div>
+            <div class="kpi-sub">另约292艘锚泊</div>
+          </div>
+          <div class="kpi kv-blue">
+            <div class="kpi-label">IEA紧急储备释放</div>
+            <div class="kpi-val">400 亿桶</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="background:rgba(248,81,73,.06);border:1px solid rgba(248,81,73,.2);border-radius:8px;padding:14px">
+          <div style="font-size:11px;color:#f85149;font-weight:700;margin-bottom:8px">🔴 伊朗最新立场</div>
+          <p style="font-size:13px;color:#e6edf3;line-height:1.7">伊朗最高领袖哈梅内伊通过国家电视台重申，霍尔木兹海峡是伊朗的“战略命脉”，伊朗将不惜一切代价维护其安全和主权。他警告称，若外部势力试图干预伊朗的区域行动或对其实施更严厉的制裁，伊朗将有能力且会“果断回应”，这被普遍解读为可能采取行动限制甚至暂时封锁海峡的威胁。伊朗海军司令沙赫拉姆·伊拉尼少将则表示，伊朗海军正在海峡及其周边区域进行“防御性部署”，以防止任何“敌对行动”。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+<div class="section p-orange" id="sec-iran-export">
+  <div class="section-header">
+    <span style="font-size:18px">🇮🇷</span>
+    <span class="section-title">伊朗石油出口 · 制裁动态</span>
+    <span class="section-sub">来源: 手动维护 (IEA/OFAC/Iran International)</span>
+  </div>
+  <div class="section-body">
+    <div class="g4">
+      <div class="kpi kv-red">
+        <div class="kpi-label">2025年均值出口</div>
+        <div class="kpi-val">1.85 mb/d</div>
+      </div>
+      <div class="kpi kv-yellow">
+        <div class="kpi-label">战前出口（2026年2月）</div>
+        <div class="kpi-val">2.16 mb/d</div>
+      </div>
+      <div class="kpi kv-red">
+        <div class="kpi-label">当前出口（估算）</div>
+        <div class="kpi-val">&lt;1.0 mb/d</div>
+      </div>
+      <div class="kpi kv-blue">
+        <div class="kpi-label">贾斯克终端</div>
+        <div class="kpi-val">仍在运</div>
+      </div>
+    </div>
+    <table class='dt' style='margin-top:14px'><thead><tr><th>制裁动态</th><th>详情</th><th>来源</th></tr></thead><tbody><tr><td>2026-03-20</td><td>美财政部GL U豁免令（30天临时豁免，至4月19日）：约1.4亿桶已装船伊朗原油可完成交付</td><td class="td-muted">U.S. Treasury / CNN</td></tr><tr><td>2026-03</td><td>美国国务院对14艘影子舰队船只及相关实体实施新制裁</td><td class="td-muted">U.S. State Department</td></tr></tbody></table>
+  </div>
+</div>
+    
+<div class="section p-green" id="sec-opec">
+  <div class="section-header">
+    <span style="font-size:18px">🏛️</span>
+    <span class="section-title">OPEC+ 决策与产量</span>
+    <span class="section-badge" style="color:#3fb950;border-color:rgba(63,185,80,.4);background:rgba(63,185,80,.1)">OPEC+于3月27日举行了紧急线上会议。会后声明表示，鉴于美伊冲突造成的全球石油供应中断风险，OPEC+同意将其在2月份会议上宣布的4月份减产计划（每日220万桶）暂停，并将自愿增产每日150万桶，以期稳定市场。沙特阿拉伯和阿联酋是此次增产的主要贡献者，承诺将动用部分闲置产能。然而，市场普遍认为，在当前高油价下，OPEC+的实际闲置产能已非常有限，且部分成员国（如伊拉克和尼日利亚）因内部问题或地缘政治风险，难以达到其配额。</span>
+    <span class="section-sub">下次会议: OPEC+已同意根据市场和地缘政治局势的演变，随时召开紧急会议。下一次例行部长级会议仍定于2026年6月1日举行，但若局势恶化，紧急会议可能在数周内召开。</span>
+  </div>
+  <div class="section-body">
+    <div class="g2">
+      <table class="dt">
+        <thead><tr><th>国家</th><th>当前产量</th><th>变化</th><th>备注</th></tr></thead>
+        <tbody><tr>
+  <td>🇸🇦 沙特</td>
+  <td class="td-red">~8.0 mb/d</td>
+  <td class="td-red">▼ -2 mb/d</td>
+  <td class="td-muted">霍尔木兹储罐积压</td>
+</tr><tr>
+  <td>🇷🇺 俄罗斯</td>
+  <td class="td-red">10.54 mb/d</td>
+  <td class="td-red">出口6.6 mb/d</td>
+  <td class="td-muted">乌战以来最低</td>
+</tr><tr>
+  <td>🇮🇷 伊朗</td>
+  <td class="td-red">~1.5 mb/d</td>
+  <td class="td-red">▼ 降幅>58%</td>
+  <td class="td-muted">战前3.59 mb/d</td>
+</tr><tr>
+  <td>🇮🇶 伊拉克</td>
+  <td class="td-red">4.5 mb/d</td>
+  <td class="td-red">历史超产</td>
+  <td class="td-muted">已承诺补偿</td>
+</tr><tr>
+  <td>🇦🇪 阿联酋</td>
+  <td class="td-red">3.64 mb/d</td>
+  <td class="td-red">历史超产</td>
+  <td class="td-muted">4月配额3.43</td>
+</tr><tr>
+  <td>🇰🇿 哈萨克斯坦</td>
+  <td class="td-red">低于配额</td>
+  <td class="td-red"></td>
+  <td class="td-muted">CPC终端中断</td>
+</tr></tbody>
+      </table>
+      <div>
+        <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px">
+          <div style="font-size:12px;color:#8b949e;font-weight:600;margin-bottom:10px">全球供需快照</div>
+          <div class="pb">
+            <div class="pb-meta"><span>全球日产量预测</span><span style="color:#58a6ff">108.7 mb/d</span></div>
+            <div class="pb-track"><div class="pb-fill pf-blue" style="width:88%"></div></div>
+          </div>
+          <div class="pb">
+            <div class="pb-meta"><span>全球日需求预测</span><span style="color:#3fb950">105.2 mb/d</span></div>
+            <div class="pb-track"><div class="pb-fill pf-green" style="width:85%"></div></div>
+          </div>
+          <div class="pb">
+            <div class="pb-meta"><span>霍尔木兹供应缺口</span><span style="color:#f85149">~8 mb/d</span></div>
+            <div class="pb-track"><div class="pb-fill pf-red" style="width:65%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+<div class="section p-blue" id="sec-shale">
+  <div class="section-header">
+    <span style="font-size:18px">🏭</span>
+    <span class="section-title">美国页岩油 · 库存 · 产量</span>
+    <span class="section-badge" style="color:#58a6ff;border-color:rgba(88,166,255,.4);background:rgba(88,166,255,.1)">EIA API 自动更新</span>
+    <span class="section-sub">来源: EIA API v2</span>
+  </div>
+  <div class="section-body">
+    <div class="g2">
+      <div>
+        <div class="g3" style="margin-bottom:12px">
+          <div class="kpi kv-blue">
+            <div class="kpi-label">原油库存 (2026-03-20)</div>
+            <div class="kpi-val">456.2 M桶</div>
+            <div class="kpi-sub">变化: +6.93 M桶</div>
+            <div class="kpi-src"><a href="https://www.eia.gov/petroleum/supply/weekly/" target="_blank">EIA 周报 ↗</a></div>
+          </div>
+          <div class="kpi kv-green">
+            <div class="kpi-label">炼厂开工率 (2026-03-20)</div>
+            <div class="kpi-val">92.9%</div>
+            <div class="kpi-src">EIA WPSR</div>
+          </div>
+          <div class="kpi kv-green">
+            <div class="kpi-label">美国原油产量 (2026-03-20)</div>
+            <div class="kpi-val">13.66 mb/d</div>
+            <div class="kpi-src">EIA WPSR</div>
+          </div>
+        </div>
+        <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px">
+          <div style="font-size:11px;color:#8b949e;font-weight:600;margin-bottom:6px">📊 近期库存变化</div>
+          <table class="dt" style="font-size:12px">
+            <thead><tr><th>日期</th><th>库存</th></tr></thead>
+            <tbody><tr><td class="td-muted">2026-03-20</td><td>456.2 M桶</td></tr><tr><td class="td-muted">2026-03-13</td><td>449.3 M桶</td></tr><tr><td class="td-muted">2026-03-06</td><td>443.1 M桶</td></tr><tr><td class="td-muted">2026-02-27</td><td>439.3 M桶</td></tr><tr><td class="td-muted">2026-02-20</td><td>435.8 M桶</td></tr><tr><td class="td-muted">2026-02-13</td><td>419.8 M桶</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div style="background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);border-radius:8px;padding:14px">
+          <div style="font-size:12px;color:#58a6ff;font-weight:700;margin-bottom:8px">✅ 数据自动获取</div>
+          <p style="font-size:13px;color:#e6edf3;line-height:1.7">库存、产量、炼厂开工率均通过 EIA API v2 自动抓取，数据来源可靠。</p>
+          <p style="font-size:13px;color:#d29922;margin-top:6px">页岩油增产存在6-12个月滞后效应，短期无法填补供应缺口。</p>
+          <p style="font-size:13px;color:#8b949e;margin-top:8px">钻机数(Baker Hughes)需在 manual.json 中手动更新。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+<div class="section p-blue" id="sec-macro">
+  <div class="section-header">
+    <span style="font-size:18px">🌐</span>
+    <span class="section-title">宏观经济因素</span>
+    <span class="section-sub">来源: FRED API (自动) · 手动补充</span>
+  </div>
+  <div class="section-body">
+    <div class="g2">
+      <div>
+        <table class="dt">
+          <thead><tr><th>指标</th><th>当前数据</th><th>油价影响</th><th>来源</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>美联储利率</td>
+              <td><strong>3.75%</strong></td>
+              <td class="td-red">降息推迟 ↓需求</td>
+              <td class="td-muted"><a href="https://fred.stlouisfed.org/series/DFEDTARU" target="_blank">FRED ↗</a></td>
+            </tr>
+            <tr>
+              <td>CPI 同比</td>
+              <td>2.4%</td>
+              <td class="td-red">高油价阻碍通胀回落</td>
+              <td class="td-muted"><a href="https://fred.stlouisfed.org/series/CPIAUCSL" target="_blank">FRED ↗</a></td>
+            </tr>
+            <tr>
+              <td>核心CPI</td>
+              <td><strong>2.5%</strong></td>
+              <td class="td-red">超目标 ↓</td>
+              <td class="td-muted">FRED</td>
+            </tr>
+            <tr>
+              <td>美元DXY</td>
+              <td><strong>100.19</strong></td>
+              <td class="td-yellow">避险强势</td>
+              <td class="td-muted"><a href="https://finance.yahoo.com/quote/DX-Y.NYB/" target="_blank">Yahoo ↗</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:14px">
+          <div style="font-size:12px;color:#8b949e;font-weight:600;margin-bottom:10px">📈 机构 Brent 展望</div>
+          <table class="dt">
+            <thead><tr><th>机构</th><th>Q2 2026</th><th>Q4 2026</th><th>逻辑</th></tr></thead>
+            <tbody><tr>
+  <td><strong>Goldman Sachs</strong></td>
+  <td class="td-yellow">$110（3月23日上调）</td>
+  <td>$71-93</td>
+  <td class="td-muted">"史上最大供应冲击"；尾部风险情景（霍+曼同时封锁）Brent可达$130，概率20-25%</td>
+</tr><tr>
+  <td><strong>EIA STEO（3月）</strong></td>
+  <td class="td-yellow">$91</td>
+  <td>~$74（WTI全年均价）</td>
+  <td class="td-muted">假设4月逐步恢复通航</td>
+</tr><tr>
+  <td><strong>IEA（3月月报）</strong></td>
+  <td class="td-yellow">N/A</td>
+  <td>N/A</td>
+  <td class="td-muted">全球需求增速下调：2026年同比增量从85万→64万桶/日，高油价抑制需求</td>
+</tr><tr>
+  <td><strong>JPMorgan</strong></td>
+  <td class="td-yellow">~$60</td>
+  <td>~$60</td>
+  <td class="td-muted">全年看空：供应过剩信号</td>
+</tr><tr>
+  <td><strong>高盛 (Goldman Sachs)</strong></td>
+  <td class="td-yellow">布伦特原油：145-160美元/桶</td>
+  <td>布伦特原油：130-145美元/桶</td>
+  <td class="td-muted">高盛将Q2和Q4预测大幅上调，主要基于美伊冲突长期化，霍尔木兹海峡持续面临高风险，以及伊朗出口几乎归零。尽管OPEC+承诺增产，但其有效性有限，难以完全弥补潜在的供应缺口。预计地缘政治溢价将持续高企，但若冲突在Q3后期出现缓和迹象，油价可能略有回落，但仍远高于战前水平。</td>
+</tr><tr>
+  <td><strong>美国能源信息署 (EIA)</strong></td>
+  <td class="td-yellow">布伦特原油：135-150美元/桶</td>
+  <td>布伦特原油：120-135美元/桶</td>
+  <td class="td-muted">EIA在其最新《短期能源展望》中指出，全球石油市场面临30年来最严重的供应冲击。伊朗约150万桶/日的出口量已完全中断，霍尔木兹海峡的航运风险导致数百万桶原油运输受阻。尽管美国战略石油储备（SPR）已宣布释放5000万桶以缓解短期压力，但长期来看，除非冲突迅速解决，否则供应紧张将是常态。Q4预测略低于Q2，是基于对全球经济增长可能因高油价而放缓，从而抑制需求的一定预期。</td>
+</tr><tr>
+  <td><strong>国际能源署 (IEA)</strong></td>
+  <td class="td-yellow">布伦特原油：140-155美元/桶</td>
+  <td>布伦特原油：125-140美元/桶</td>
+  <td class="td-muted">IEA在其月度报告中强调，全球石油安全正面临严峻挑战。美伊冲突已直接导致约300万桶/日的原油供应面临风险（包括伊朗出口中断和霍尔木兹海峡的潜在中断）。IEA已呼吁成员国做好进一步释放战略储备的准备，并与OPEC+紧密合作。该机构预测，除非出现重大外交突破，否则高油价将持续，并可能引发全球范围内的经济衰退，这将反过来对2026年末的需求增长产生负面影响。</td>
+</tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+<div class="section p-blue" id="sec-china">
+  <div class="section-header">
+    <span style="font-size:18px">🇨🇳</span>
+    <span class="section-title">中国石油需求</span>
+    <span class="section-sub">来源: 手动维护 (IEA/OGJ/OilPrice.com)</span>
+  </div>
+  <div class="section-body">
+    <div class="g4">
+      <div class="kpi kv-green">
+        <div class="kpi-label">1-2月均值进口</div>
+        <div class="kpi-val">11.99 mb/d</div>
+        <div class="kpi-sub">同比 +15.8%</div>
+      </div>
+      <div class="kpi kv-blue">
+        <div class="kpi-label">战略储备估算</div>
+        <div class="kpi-val">~1200 亿桶</div>
+      </div>
+      <div class="kpi kv-blue">
+        <div class="kpi-label">需求增长 (IEA)</div>
+        <div class="kpi-val">+14万 b/d</div>
+      </div>
+      <div class="kpi kv-yellow">
+        <div class="kpi-label">制造业PMI (NBS)</div>
+        <div class="kpi-val">50.3</div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+<div class="section p-orange" id="sec-forward">
+  <div class="section-header">
+    <span style="font-size:18px">📡</span>
+    <span class="section-title">前瞻性指标</span>
+    <span class="section-sub">来源: Yahoo Finance (自动) + 手动补充</span>
+  </div>
+  <div class="section-body">
+    <div class="g3">
+      <div class="kpi">
+        <div class="kpi-label">① 期货曲线 (backwardation)</div>
+        <div class="kpi-val" style="color:#f85149">M1: —</div>
+        <div class="kpi-sub">M6: — · M12: —</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">② CFTC COT净多头</div>
+        <div class="kpi-val" style="color:#d29922">— 手</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">③ OVX 波动率 (自动)</div>
+        <div class="kpi-val" style="color:#a371f7">96.64</div>
+        <div class="kpi-sub">正常区间 25-35</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">⑤ 全球PMI</div>
+        <div class="kpi-val" style="color:#3fb950">美52.4 / 中50.2</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">⑨ 航运战险</div>
+        <div class="kpi-val" style="color:#f85149">船价1%/7天</div>
+        <div class="kpi-sub">P&I: 全部撤保</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">⑩ DUC井 (Permian)</div>
+        <div class="kpi-val" style="color:#d29922">893 口</div>
+        <div class="kpi-sub">全美: 1566 口</div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+<div class="section p-green" id="sec-calendar">
+  <div class="section-header">
+    <span style="font-size:18px">📅</span>
+    <span class="section-title">关键事件日历</span>
+    <span class="section-sub">config.py 中维护</span>
+  </div>
+  <div class="section-body">
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-03</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 美国非农就业 (NFP) 3月数据</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">就业数据决定联储路径预期</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.bls.gov/schedule/2026/home.htm" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-05</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 OPEC+ JMMC 第65次会议</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">审查产量合规及市场状况</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.opec.org/" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-07</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🟡 EIA STEO 4月</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">更新 Brent/WTI 全年价格预测</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.eia.gov/outlooks/steo/" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-10</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 美国 CPI 3月数据</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">油价驱动的通胀数据</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.bls.gov/schedule/2026/home.htm" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-14</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 IEA 石油市场月报 (OMR 4月)</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">首次量化霍尔木兹封锁影响</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.iea.org/topics/oil-market-report" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-16</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🟡 中国 Q1 GDP & 3月工业数据</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">GDP低于5%目标 → 需求端利空</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.stats.gov.cn/english/" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-22</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🟡 WTI 5月合约 (CLK26) 到期</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">移仓放大价差波动</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.cmegroup.com/markets/energy/crude-oil/light-sweet-crude.calendar.html" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-28</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 FOMC 议息会议</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">Fed 面临滞涨困境</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">04-30</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 美国 Q1 GDP 初值 + 中国 4月 PMI</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">GDP覆盖伊朗战争冲击期</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.bea.gov/news/schedule" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">05-05</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🟡 EIA STEO 5月</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">封锁持续则上修供应缺口</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.eia.gov/outlooks/steo/" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">05-08</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 美国非农就业 (NFP) 4月数据</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">就业转弱 → 衰退预期</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.bls.gov/schedule/news_release/empsit.htm" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">05-12</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 CPI 4月 + IEA OMR 5月</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">两天内可能形成方向性信号</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.bls.gov/schedule/news_release/cpi.htm" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">05-25</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🟡 Memorial Day (驾车季开启)</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">夏季汽油需求旺季</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.eia.gov/outlooks/steo/report/summerfuels.php" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">06-01</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🟡 大西洋飓风季开始</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">墨西哥湾产区190万桶/日风险</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.noaa.gov/" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div>
+<div class="item">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <div style="min-width:80px;font-size:12px;color:#8b949e;padding-top:2px">06-07</div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3">🔴 OPEC+ 第41次部长级会议</div>
+      <div style="font-size:12px;color:#8b949e;margin-top:3px">确定下半年产量配额</div>
+      <div style="margin-top:4px"><a class="src" href="https://www.opec.org/" target="_blank">来源 ↗</a></div>
+    </div>
+  </div>
+</div></div>
+</div>
+    
+<div class="section p-gray" id="sec-news">
+  <div class="section-header">
+    <span style="font-size:18px">📰</span>
+    <span class="section-title">新闻资讯 (RSS自动抓取)</span>
+    <span class="section-badge" style="color:#8b949e;border-color:rgba(139,148,158,.4);background:rgba(139,148,158,.1)">来源真实 · 链接可验证</span>
+  </div>
+  <div class="section-body">
+    <div style="font-size:11px;color:#8b949e;margin-bottom:12px;padding:4px 8px;background:#161b22;border-radius:4px;display:inline-block">
+      ✅ 新闻标题和链接来自 RSS 源自动抓取, 非AI生成
+    </div>
+    
+<div class="news-item">
+  <div class="news-date">Sun, 29 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/29/bahrain-aluminum-giant-says-iranian-attack-targeted-its-facilit.html" target="_blank"><span title="Bahrain aluminum giant says Iranian attack targeted its facility">巴林铝业巨头称其设施遭伊朗袭击</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Sat, 28 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/28/iran-war-oil-companies-price-gas-diesel-strait-hormuz.html" target="_blank"><span title="How the big oil and gas CEOs think the Iran war supply disruption will play out">石油天然气巨头CEO们如何看待伊朗战争造成的供应中断</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span> <span class="ntag">供应</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Sat, 28 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/28/yemens-houthis-launch-israel-strike-the-first-of-the-iran-war.html" target="_blank"><span title="Yemen's Houthis launch Israel strike, the first time since the U.S.-Israel war began">也门胡塞武装首次对以色列发动袭击，自美以战争爆发以来</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span> <span class="ntag">船运</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/27/trump-strait-of-hormuz-iran-war.html" target="_blank"><span title="Trump calls Strait of Hormuz the 'Strait of Trump'">特朗普称霍尔木兹海峡为“特朗普海峡”</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/27/tech-stocks-iran-war-meta-verdict.html" target="_blank"><span title="Tech stocks suffer worst week in nearly a year, driven down by war worries, Meta legal woes">科技股经历近一年来最差一周，受战争担忧和Meta法律困境拖累</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/27/india-fuel-tax-cut-oil-prices-iran-war-impact.html" target="_blank"><span title="India takes a ‘huge hit’ on tax revenue to keep fuel prices from surging during the Iran war">印度税收遭受“重创”，以遏制伊朗战争期间燃料价格飙升</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/27/oil-price-wti-brent-crude-trump-strait-hormuz-tensions-iran-ships.html" target="_blank"><span title="Oil prices close at highest level since 2022 as Iran negotiations fail to ease supply fears">伊朗谈判未能缓解供应担忧，油价收于2022年以来最高水平</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span> <span class="ntag">供应</span> <span class="ntag">船运</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Thu, 26 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/26/trump-iran-war-oil-strait-of-hormuz.html" target="_blank"><span title="Trump says Iran let 10 oil ships through Strait of Hormuz as a 'present' to U.S.">特朗普称伊朗让10艘油轮通过霍尔木兹海峡是对美国的“礼物”</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Thu, 26 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/26/strait-of-hormuz-israel-iran-alireza-tangsiri-middle-east-war.html" target="_blank"><span title="Israel says it has killed Iran naval chief overseeing Strait of Hormuz blockade">以色列称已击毙负责霍尔木兹海峡封锁的伊朗海军司令</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Thu, 26 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/26/iran-plans-tolls-on-ships-passing-through-strait-of-hormuz.html" target="_blank"><span title="Iran plans to charge ships for safe passage through Strait of Hormuz, report says">报道称伊朗计划对通过霍尔木兹海峡的船只收取安全通行费</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Thu, 26 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/26/market-trends-oil-futures-backwardation.html" target="_blank"><span title="The oil market is in 'backwardation' — Here’s what that means for energy prices">油市处于“现货溢价”状态——这对能源价格意味着什么</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Thu, 26 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/26/oil-price-wti-brent-crude-iran-rejects-direct-us-trump-talks-hormuz.html" target="_blank"><span title="Oil prices rise as Iran rejects direct U.S. talks despite proposal review">伊朗审查提议后仍拒绝与美国直接谈判，油价上涨</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Thu, 26 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/25/iran-war-gas-prices-epa-waiver.html" target="_blank"><span title="Trump administration waives gasoline regulations to address surging fuel prices">特朗普政府放弃汽油规定以应对燃料价格飙升</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span> <span class="ntag">供应</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Wed, 25 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/25/iran-war-oil-shell-totalenergies-energy-strait-of-hormuz.html" target="_blank"><span title="Oil giants raise the alarm over energy shortages as Iran war drags on">伊朗战争持续，石油巨头就能源短缺发出警告</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span> <span class="ntag">供应</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Wed, 25 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/25/burgum-iran-war-oil-price-trump.html" target="_blank"><span title="Watch Interior Secretary Burgum address oil industry as Trump hints at negotiated end to Iran war">观看内政部长伯格姆向石油行业发表讲话，特朗普暗示通过谈判结束伊朗战争</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Wed, 25 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/25/south-korea-iran-oil-shock-middle-east-conflict.html" target="_blank"><span title="South Korea braces for 'worst-case scenarios' as Iran oil shock deepens">随着伊朗石油冲击加剧，韩国为“最坏情况”做准备</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Wed, 25 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/25/iran-war-renewables-solar-wind-oil-gas-energy-strait-of-hormuz.html" target="_blank"><span title="‘Asia’s Ukraine moment’: How the Iran war could accelerate a shift into renewables">“亚洲的乌克兰时刻”：伊朗战争如何加速向可再生能源转型</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Wed, 25 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/25/oil-price-wti-brent-gas-lng-trump-iran-talks-hormuz.html" target="_blank"><span title="Oil prices fall as Iran signals safe passage for ‘non-hostile’ ships through Strait of Hormuz">伊朗暗示“非敌对”船只可安全通过霍尔木兹海峡，油价下跌</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Tue, 24 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/24/totalenergies-ceo-world-has-never-experienced-refining-margins-like-this-.html" target="_blank"><span title="World has 'never experienced' soaring refining margins like this, TotalEnergies CEO tells CNBC">道达尔能源CEO告诉CNBC，世界“从未经历过”如此飙升的炼油利润</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Tue, 24 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/24/iran-war-oil-strait-hormuz-kuwait-gulf.html" target="_blank"><span title="Kuwait says Strait of Hormuz closure is beyond catastrophic, will trigger domino effect across global economy">科威特称霍尔木兹海峡关闭将是灾难性的，并将引发全球经济多米诺骨牌效应</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Tue, 24 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/24/dccc-ad-campaign-gas-prices-trump-2026-election.html" target="_blank"><span title="DCCC launches geotargeted digital ad campaign hitting GOP for gas prices">DCCC发起地理定位数字广告活动，抨击共和党汽油价格问题</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Tue, 24 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://www.cnbc.com/2026/03/24/iran-war-britain-new-homes-solar-heat-pumps-energy-crisis.html" target="_blank"><span title="Britain responds to Iran war energy shock by requiring solar panels and heat pumps in all new homes">英国通过要求所有新建住宅安装太阳能电池板和热泵来应对伊朗战争能源冲击</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span> <span class="ntag">供应</span>
+      <span class="src">CNBC Energy</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Sat, 28 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Energy/Crude-Oil/Drillers-See-Triple-Digit-Crude-and-Hit-the-Brakes.html" target="_blank"><span title="Drillers See Triple-Digit Crude and Hit the Brakes">钻井商看到三位数原油价格后踩刹车</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Energy/Energy-General/Why-the-Iran-Conflict-Is-Good-News-for-Chinese-Automakers.html" target="_blank"><span title="Why the Iran Conflict Is Good News for Chinese Automakers">为何伊朗冲突对中国汽车制造商是好消息</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Latest-Energy-News/World-News/Aker-BPs-Earnings-Slide-Masks-a-Massive-Growth-Push.html" target="_blank"><span title="Aker BP’s Earnings Slide Masks a Massive Growth Push">阿克BP利润下滑掩盖了大规模增长推动</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">供应</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Energy/Energy-General/A-Key-Russia-Iran-Supply-Line-Remains-Open-Despite-the-War.html" target="_blank"><span title="A Key Russia-Iran Supply Line Remains Open Despite the War">俄伊关键补给线战时仍保持开放</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span> <span class="ntag">供应</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Energy/Energy-General/US-Drillers-Pull-Back-As-WTI-Soars-Past-98.html" target="_blank"><span title="US Drillers Pull Back As WTI Soars Past $98">美国钻井商在WTI原油突破98美元后撤退</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Latest-Energy-News/World-News/100-Oil-Is-Solving-Russias-Budget-Problem.html" target="_blank"><span title="$100 Oil Is Solving Russia's Budget Problem">100美元油价正在解决俄罗斯的预算问题</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">地缘</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Energy/Energy-General/UK-Oil-Producer-Urges-North-Sea-Revival-as-Hormuz-Crisis-Disrupts-Supply.html" target="_blank"><span title="U.K. Oil Producer Urges North Sea Revival as Hormuz Crisis Disrupts Supply">霍尔木兹危机扰乱供应，英国石油生产商呼吁北海复兴</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">地缘</span> <span class="ntag">供应</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+<div class="news-item">
+  <div class="news-date">Fri, 27 Mar 2026</div>
+  <div class="news-body">
+    <div class="news-hl"><a href="https://oilprice.com/Latest-Energy-News/World-News/Asia-Begins-Pricing-US-Oil-Against-Brent-as-Dubai-Volatility-Spikes.html" target="_blank"><span title="Asia Begins Pricing U.S. Oil Against Brent as Dubai Volatility Spikes">迪拜市场波动加剧，亚洲开始用布伦特原油衡量美国油价</span></a></div>
+    <div class="news-footer">
+      <span class="ntag">油价</span> <span class="ntag">供应</span>
+      <span class="src">OilPrice.com</span>
+    </div>
+  </div>
+</div>
+  </div>
+</div>
+    
+<div class="section" id="sec-polymarket" style="border:1px solid rgba(236,72,153,.35);border-radius:10px;margin-bottom:24px">
+  <div class="section-header" style="background:rgba(236,72,153,.08);border-bottom:1px solid rgba(236,72,153,.25)">
+    <span style="font-size:18px">🎯</span>
+    <span class="section-title">Polymarket 市场情绪</span>
+    <span class="section-badge" style="color:#ec4899;border-color:rgba(236,72,153,.4);background:rgba(236,72,153,.1)">Polymarket API 自动抓取</span>
+  </div>
+  <div class="section-body">
+    <div style="font-size:11px;color:#8b949e;margin-bottom:16px;padding:6px 10px;background:#161b22;border-radius:4px;border:1px solid #21262d">
+      ✅ 概率数据来自 Polymarket Gamma API 实时抓取
+    </div>
+    
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $120 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">9.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:9.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $6.62M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $110 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">29.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:29.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $6.21M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $100 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">81.9%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:81.9%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $13.96M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $90 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $80 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $75 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $70 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $344K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $65 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $1.21M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $50 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $411K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $40 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $475K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $60 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $614K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $55 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $365K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $45 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $470K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $75 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">1.2%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:1.2%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $968K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $80 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">1.3%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:1.3%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $1.48M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $85 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $70 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.7%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.7%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $616K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $90 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $150 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.8%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.8%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $8.48M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $140 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">1.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:1.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $2.50M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $105 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">56.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:56.5%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $3.92M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $130 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">4.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:4.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $3.35M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $95 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $180 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.2%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.2%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $4.72M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $200 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $11.72M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $90 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $85 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">2.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:2.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $897K · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $90 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $95 by end of March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $2.03M · <a href="https://polymarket.com/event/will-crude-oil-cl-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at $70-$75 in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $53K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at <$60 in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.2%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.2%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $104K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at $60-$65 in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $113K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at $65-$70 in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $196K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at $75-$80 in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.7%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.7%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $254K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at $80-$85 in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">1.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:1.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $176K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at $85-$90 in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">2.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:2.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $201K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) settle at $90+ in March?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">95.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:95.5%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $126K · <a href="https://polymarket.com/event/what-will-crude-oil-cl-settle-at-in-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $90 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $56 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $875 · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $65 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $50K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $75 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $70 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $42K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $55 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">11.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:11.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $34K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $52 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">7.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:7.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $16K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $40 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">3.6%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:3.6%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $81K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $80 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $60 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $4K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $50 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">5.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:5.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $19K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $47 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">5.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:5.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $9K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $45 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">3.8%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:3.8%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $23K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $35 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">2.2%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:2.2%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $13K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $100 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">94.3%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:94.3%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $704K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $110 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">75.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:75.5%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $83K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $150 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">26.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:26.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $578K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $200 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">14.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:14.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $1.09M · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $130 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">43.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:43.5%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $26K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $115 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">68.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:68.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $6K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $70 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">32.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:32.5%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $7K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $85 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">60.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:60.0%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $12K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $105 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">80.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:80.5%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $20K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $140 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">34.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:34.5%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $17K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $60 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">17.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:17.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $4K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $80 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">56.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:56.0%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $8K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (LOW) $90 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $120 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">63.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:63.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $16K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will Crude Oil (CL) hit (HIGH) $175 by end of June?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">16.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:16.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $82K · <a href="https://polymarket.com/event/cl-hit-jun-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Strait of Hormuz traffic returns to normal by end of April?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">23.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:23.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $1.46M · <a href="https://polymarket.com/event/strait-of-hormuz-traffic-returns-to-normal-by-april-30" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will the Kharg Island oil terminal be hit by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">6.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:6.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $690K · <a href="https://polymarket.com/event/will-the-kharg-island-oil-terminal-be-hit-by-march-31" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will the Kharg Island oil terminal be hit by April 30?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">35.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:35.0%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $10K · <a href="https://polymarket.com/event/will-the-kharg-island-oil-terminal-be-hit-by-march-31" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">1.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:1.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $38.34M · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by April 30?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">31.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:31.5%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $6.45M · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by March 6?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by March 15?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by March 2?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.0%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $3.49M · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by December 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">74.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:74.5%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $490K · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by June 30?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">59.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:59.0%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $2.31M · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by May 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">48.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:48.5%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $2.21M · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by April 15?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">13.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:13.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $5.75M · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US x Iran ceasefire by April 7?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">6.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:6.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $1.27M · <a href="https://polymarket.com/event/us-x-iran-ceasefire-by" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will the Iranian regime fall before 2027?</span>
+    <span style="font-size:14px;font-weight:800;color:#d29922">34.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:34.5%;height:100%;background:#d29922;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $12.02M · <a href="https://polymarket.com/event/will-the-iranian-regime-fall-by-the-end-of-2026" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">US-Iran nuclear deal by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $1.49M · <a href="https://polymarket.com/event/us-iran-nuclear-deal-by-march-31" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $5.00 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.6%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.6%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $84K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $4.50 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.9%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.9%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $112K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $4.25 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">2.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:2.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $58K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $4.00 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">60.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:60.5%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $42K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $3.75 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $3.50 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $3.35 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (High) $3.25 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#f85149">100.0%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:100.0%;height:100%;background:#f85149;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $0 · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (Low) $3.15 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">1.1%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:1.1%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $23K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (Low) $3.10 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $41K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (Low) $3.05 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.5%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.5%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $172K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+<div style="background:#161b22;border:1px solid #21262d;border-radius:6px;padding:10px 14px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <span style="font-size:12px;color:#e6edf3">Will gas hit (Low) $3.00 by March 31?</span>
+    <span style="font-size:14px;font-weight:800;color:#3fb950">0.4%</span>
+  </div>
+  <div style="background:#21262d;border-radius:3px;height:6px;overflow:hidden">
+    <div style="width:0.4%;height:100%;background:#3fb950;border-radius:3px"></div>
+  </div>
+  <div style="margin-top:4px;font-size:10px;color:#8b949e">交易量 $26K · <a href="https://polymarket.com/event/will-gas-hit-by-end-of-march" target="_blank" style="color:#58a6ff">Polymarket ↗</a></div>
+</div>
+  </div>
+</div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="background:#010409;border-top:1px solid #30363d;padding:16px 24px;text-align:center;font-size:11px;color:#8b949e">
+  油价影响因素看板 · Python自动生成 · 生成时间 2026-03-29 22:40:23
+  <br>数据来源: Yahoo Finance · EIA API · FRED · Polymarket · AGSI/GIE · RSS(CNBC/Reuters/Al Jazeera/OilPrice)
+  <br>⚠️ 自动抓取数据来源可靠, 手动补充部分请人工校验
+</div>
+
+</body>
+</html>
